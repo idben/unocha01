@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      height: 100vh;
+      margin: 0;
+
+      &.active {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+    }
+
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      outline: 1px solid;
+      overflow: hidden;
+      &.active{
+        scale: 0.5;
+        overflow: visible;
+      }
+    }
+
+    .item {
+      position: absolute;
+      width: 200px;
+      height: 300px;
+      background-color: #bebebe;
+      font-size: 60px;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+
+      &.item1 {
+        left: -300px;
+        top: -600px;
+      }
+
+      &.item2 {
+        left: 100px;
+        top: -150px;
+      }
+
+      &.item3 {
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        margin: auto;
+      }
+
+      &.item4 {
+        right: 100px;
+        bottom: -150px;
+      }
+
+      &.item5 {
+        right: -300px;
+        bottom: -600px;
+      }
+    }
+
+    .ctrl {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+
+      button {
+        font-size: 30px;
+      }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <title>烏弄 like Carousel function</title>
+</head>
+
+<body class="active">
+  <div class="hero active">
+    <div class="item item1">1</div>
+    <div class="item item2">2</div>
+    <div class="item item3">3</div>
+    <div class="item item4">4</div>
+    <div class="item item5">5</div>
+    <div class="ctrl">
+      <button>prev</button>
+      <button>next</button>
+      <button>no scale</button>
+    </div>
+  </div>
+
+  <script>
+    const hero = document.querySelector('.hero');
+    const items = [...document.querySelectorAll('.item')];
+    const btns = document.querySelectorAll('.ctrl button');
+    const btnPrev = btns[0]; // 下一個按鈕的指定
+    const btnNext = btns[1]; // 上一個按鈕的指定
+    const btnScale = btns[2]; // 切換縮小版和全版的按鈕指定
+    const scaleAry = [0.6, 0.8, 1.5, 0.8, 0.6]; // 縮放比的指定陣列，也不一定要縮放，就全設定1
+
+    // 抓取現在存在的原始 .item 的中心位置，做為位移時的定位點
+    let anchors = items.map(el => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+
+    // 每個 item 目前在第幾個錨點（初始一一對應）
+    const slotOfItem = items.map((_, i) => i);
+
+    // 父層縮放比例（.hero 有 CSS scale 時需要換算）
+    let heroScale = getHeroScale();
+
+    // 一開始依照 slot 設定對應的縮放
+    items.forEach((el, i) => {
+      gsap.set(el, { scale: scaleAry[slotOfItem[i]] });
+    });
+
+    let isPlaying = false; // 控制在動畫播完全不能再按上下一個的變數
+
+    // 切換縮小版和全版的功能
+    btnScale.addEventListener("click", ()=>{
+      document.body.classList.toggle("active"); // 縮小的指令寫在 .active 中
+      hero.classList.toggle("active");
+      resize(); // 縮放完執行這個 fucntion 來 更新縮放比例、重新量測定位點、套用對應的 scale
+    })
+
+    // NEXT：最後一個回到 0 的瞬移，其餘補間
+    btnNext.addEventListener('click', () => {
+      if (isPlaying) return;
+      isPlaying = true;
+
+      let finished = 0; // 判斷有多少個動畫完成了的變數
+
+      items.forEach((el, i) => {
+        const nextSlot = (slotOfItem[i] + 1) % items.length; // 計算「往後一格的索引」，並且用 (模運算 %) 讓索引能夠自動循環 (loop) 不會超出範圍
+
+        const cur = el.getBoundingClientRect(); // 抓取現在的元素的大小與位置資訊
+        const curCx = cur.left + cur.width / 2; // 計算元素中心點 X 座標
+        const curCy = cur.top + cur.height / 2; // 計算元素中心點 Y 座標
+
+        const target = anchors[nextSlot]; // 抓取要移動過去的定位點
+        const dx = (target.x - curCx) / heroScale; // 計算兩點間的 X 距離差
+        const dy = (target.y - curCy) / heroScale; // 計算兩點間的 Y 距離差
+        const scaleTarget = scaleAry[nextSlot]; // 取得定位點的縮放比
+
+        if (nextSlot === 0) {
+          // 最後一個會回到第 0 錨點 → 瞬移
+          gsap.killTweensOf(el); // 刪除所有 gsap 動畫
+          gsap.set(el, { x: `+=${dx}`, y: `+=${dy}`, scale: scaleTarget }); // 用 .set 來直接設定新的位置和縮放比
+          slotOfItem[i] = nextSlot; // 把下一格的索引寫入 slotOfItem 這個計錄索引的陣列中
+          finished++; // 動畫完成數加一
+          if (finished === items.length) isPlaying = false;
+          // 如果動畫完成數和物件個數一樣，讓按鈕回復可以按的狀態
+          return;
+        }
+
+        // 最後一個以外的做 gsap.to 動畫
+        // delay 是讓動畫不會一起播的設定
+        gsap.to(el, {
+          x: `+=${dx}`,
+          y: `+=${dy}`,
+          scale: scaleTarget,
+          duration: 1,
+          ease: 'power2.inOut',
+          delay: (10 - 2 * nextSlot) / 10,
+          onComplete: () => {
+            slotOfItem[i] = nextSlot; // 把下一格的索引寫入 slotOfItem 這個計錄索引的陣列中
+            finished++; // 動畫完成數加一
+            if (finished === items.length) isPlaying = false;
+            // 如果動畫完成數和物件個數一樣，讓按鈕回復可以按的狀態
+          }
+        });
+      });
+    });
+
+    // PREV：第一個回到最後一個的瞬移，其餘補間
+    btnPrev.addEventListener('click', () => {
+      if (isPlaying) return;
+      isPlaying = true;
+
+      let finished = 0;
+
+      items.forEach((el, i) => {
+        const prevSlot = (slotOfItem[i] - 1 + items.length) % items.length;
+
+        const cur = el.getBoundingClientRect();
+        const curCx = cur.left + cur.width / 2;
+        const curCy = cur.top + cur.height / 2;
+
+        const target = anchors[prevSlot];
+        const dx = (target.x - curCx) / heroScale;
+        const dy = (target.y - curCy) / heroScale;
+        const scaleTarget = scaleAry[prevSlot];
+
+        if (prevSlot === items.length - 1) {
+          // 會回到最後一個錨點 → 瞬移
+          gsap.killTweensOf(el);
+          gsap.set(el, { x: `+=${dx}`, y: `+=${dy}`, scale: scaleTarget });
+          slotOfItem[i] = prevSlot;
+          finished++;
+          if (finished === items.length) isPlaying = false;
+          return;
+        }
+
+        gsap.to(el, {
+          x: `+=${dx}`,
+          y: `+=${dy}`,
+          scale: scaleTarget,
+          duration: 1,
+          ease: 'power2.inOut',
+          delay: 2 * prevSlot / 10,
+          onComplete: () => {
+            slotOfItem[i] = prevSlot;
+            finished++;
+            if (finished === items.length) isPlaying = false;
+          }
+        });
+      });
+    });
+
+    // 取得 .hero 的縮放比
+    function getHeroScale() {
+      const s = hero.getBoundingClientRect().width / hero.offsetWidth;
+      return s || 1;
+    }
+
+    // 重新量測「原始 CSS 位置」作為 anchors（中心點）
+    function measureAnchors() {
+      // 暫存目前 transform（不影響使用者視覺）
+      const saved = items.map(el => ({
+        x: gsap.getProperty(el, 'x'),
+        y: gsap.getProperty(el, 'y')
+      }));
+
+      // 清掉位移再量中心（scale 保留，中心不會因 scale 改變）
+      items.forEach(el => gsap.set(el, { x: 0, y: 0 }));
+      const newAnchors = items.map(el => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      });
+      // 還原位移
+      items.forEach((el, i) => gsap.set(el, { x: saved[i].x, y: saved[i].y }));
+
+      return newAnchors;
+    }
+
+    // 依目前 slot 瞬移回正確錨點，並套用對應 scale
+    function repositionAll() {
+      const scale = getHeroScale();
+
+      items.forEach((el, i) => {
+        const cur = el.getBoundingClientRect();
+        const curCx = cur.left + cur.width / 2;
+        const curCy = cur.top + cur.height / 2;
+
+        const target = anchors[slotOfItem[i]];
+        const dx = (target.x - curCx) / scale;
+        const dy = (target.y - curCy) / scale;
+
+        gsap.killTweensOf(el); // 刪除所有 gsap 動畫
+        gsap.set(el, { x: `+=${dx}`, y: `+=${dy}`, scale: scaleAry[slotOfItem[i]] }); // 設定屬性
+      });
+    }
+
+
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      resize();
+    });
+
+    function resize(){
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        heroScale = getHeroScale();    // 1) 更新縮放比例
+        anchors = measureAnchors();    // 2) 重新量定點
+        repositionAll();               // 3) 依 slot 瞬移並套用對應 scale
+      }, 100); // 防抖，100毫秒才真正 resize 一次，避免瘋狂的縮放視窗就要瘋狂的 resize
+    }
+  </script>
+</body>
+
+</html>

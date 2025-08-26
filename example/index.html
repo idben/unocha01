@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      height: 100vh;
+      /* display: flex;
+      justify-content: center;
+      align-items: center; */
+      margin: 0;
+    }
+
+    .hero {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      /* scale: 0.5; */
+      outline: 1px solid;
+      overflow: hidden;
+    }
+
+    .item {
+      position: absolute;
+      width: 200px;
+      height: 300px;
+      /* background-color: #bebebe; */
+      font-size: 60px;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      user-select: none;
+      img{
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+
+      &.item1 {
+        left: -300px;
+        top: -600px;
+      }
+
+      &.item2 {
+        left: 100px;
+        top: -150px;
+      }
+
+      &.item3 {
+        left: 0;
+        right: 0;
+        top: 0;
+        bottom: 0;
+        margin: auto;
+      }
+
+      &.item4 {
+        right: 100px;
+        bottom: -150px;
+      }
+
+      &.item5 {
+        right: -300px;
+        bottom: -600px;
+      }
+    }
+
+    .ctrl {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+
+      button {
+        font-size: 30px;
+      }
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+  <title>烏弄 like Carousel function</title>
+</head>
+
+<body>
+  <div class="hero">
+    <div class="item item1">
+      <img src="./images/drink-1.png" alt="">
+    </div>
+    <div class="item item2"><img src="./images/drink-2.png" alt=""></div>
+    <div class="item item3"><img src="./images/drink-3.png" alt=""></div>
+    <div class="item item4"><img src="./images/drink-5.png" alt=""></div>
+    <div class="item item5"><img src="./images/drink-6.png" alt=""></div>
+    <div class="ctrl">
+      <button>prev</button>
+      <button>next</button>
+    </div>
+  </div>
+  <script>
+    const hero = document.querySelector('.hero');
+    const items = [...document.querySelectorAll('.item')];
+    const btns = document.querySelectorAll('.ctrl button');
+    const btnPrev = btns[0];
+    const btnNext = btns[1];
+    const scaleAry = [0.6, 1.5, 3, 1.5, 0.6];
+
+    let anchors = items.map(el => {
+      const r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+    });
+
+    const slotOfItem = items.map((_, i) => i);
+
+    let heroScale = getHeroScale();
+
+    items.forEach((el, i) => {
+      gsap.set(el, { scale: scaleAry[slotOfItem[i]] });
+    });
+
+    let isPlaying = false;
+
+    btnNext.addEventListener('click', () => {
+      if (isPlaying) return;
+      isPlaying = true;
+
+      let finished = 0;
+      
+
+      items.forEach((el, i) => {
+        const nextSlot = (slotOfItem[i] + 1) % items.length;
+        
+
+        const cur = el.getBoundingClientRect();
+        const curCx = cur.left + cur.width / 2;
+        const curCy = cur.top + cur.height / 2;
+
+        const target = anchors[nextSlot];
+        const dx = (target.x - curCx) / heroScale;
+        const dy = (target.y - curCy) / heroScale;
+        const scaleTarget = scaleAry[nextSlot];
+
+        if (nextSlot === 0) {
+          gsap.killTweensOf(el);
+          gsap.set(el, { x: `+=${dx}`, y: `+=${dy}`, scale: scaleTarget });
+          slotOfItem[i] = nextSlot;
+          finished++;
+          
+          if (finished === items.length) isPlaying = false;
+          return;
+        }
+        
+        gsap.to(el, {
+          x: `+=${dx}`,
+          y: `+=${dy}`,
+          scale: scaleTarget,
+          duration: 1,
+          delay: (10 - 2*nextSlot)/10,
+          ease: 'power2.inOut',
+
+          onComplete: () => {
+            slotOfItem[i] = nextSlot;
+            finished++;
+            if (finished === items.length) isPlaying = false;
+          }
+        });
+      });
+    });
+
+    btnPrev.addEventListener('click', () => {
+      if (isPlaying) return;
+      isPlaying = true;
+
+      let finished = 0;
+
+      items.forEach((el, i) => {
+        const prevSlot = (slotOfItem[i] - 1 + items.length) % items.length;
+
+        const cur = el.getBoundingClientRect();
+        const curCx = cur.left + cur.width / 2;
+        const curCy = cur.top + cur.height / 2;
+
+        const target = anchors[prevSlot];
+        const dx = (target.x - curCx) / heroScale;
+        const dy = (target.y - curCy) / heroScale;
+        const scaleTarget = scaleAry[prevSlot];
+
+        if (prevSlot === items.length - 1) {
+          gsap.killTweensOf(el);
+          gsap.set(el, { x: `+=${dx}`, y: `+=${dy}`, scale: scaleTarget });
+          slotOfItem[i] = prevSlot;
+          finished++;
+          if (finished === items.length) isPlaying = false;
+          return;
+        }
+
+        gsap.to(el, {
+          x: `+=${dx}`,
+          y: `+=${dy}`,
+          scale: scaleTarget,
+          duration: 1,
+          ease: 'power2.inOut',
+          delay: 2*prevSlot/10,
+          onComplete: () => {
+            slotOfItem[i] = prevSlot;
+            finished++;
+            if (finished === items.length) isPlaying = false;
+          }
+        });
+      });
+    });
+
+    function getHeroScale() {
+      const s = hero.getBoundingClientRect().width / hero.offsetWidth;
+      return s || 1;
+    }
+
+    function measureAnchors() {
+      const saved = items.map(el => ({
+        x: gsap.getProperty(el, 'x'),
+        y: gsap.getProperty(el, 'y')
+      }));
+
+      items.forEach(el => gsap.set(el, { x: 0, y: 0 }));
+      const newAnchors = items.map(el => {
+        const r = el.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+      });
+      items.forEach((el, i) => gsap.set(el, { x: saved[i].x, y: saved[i].y }));
+
+      return newAnchors;
+    }
+
+    function repositionAll() {
+      const scale = getHeroScale();
+      items.forEach((el, i) => {
+        const cur = el.getBoundingClientRect();
+        const curCx = cur.left + cur.width / 2;
+        const curCy = cur.top + cur.height / 2;
+
+        const target = anchors[slotOfItem[i]];
+        const dx = (target.x - curCx) / scale;
+        const dy = (target.y - curCy) / scale;
+
+        gsap.killTweensOf(el);
+        gsap.set(el, { x: `+=${dx}`, y: `+=${dy}`, scale: scaleAry[slotOfItem[i]] });
+      });
+    }
+
+    let resizeTimer = null;
+    window.addEventListener('resize', () => {
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        heroScale = getHeroScale(); 
+        anchors = measureAnchors();
+        repositionAll();
+      }, 100);
+    });
+  </script>
+</body>
+
+</html>
