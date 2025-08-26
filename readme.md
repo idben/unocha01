@@ -4,4 +4,4 @@
 ## 說明
 * 使用 gsap 做位移動畫
 * [說明的頁面](https://idben.github.io/unocha01)
-* 套上圖案的頁面(https://idben.github.io/unocha01/example)
+* [套上圖案的頁面](https://idben.github.io/unocha01/example)
